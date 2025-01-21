@@ -1,0 +1,129 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String
+  role          UserRole  @default(CLIENT)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  profile       Profile?
+  sentMessages    Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  listings      Listing[]
+  subscriptions Subscription[]
+  sentRequests     Request[] @relation("UserRequests")
+  receivedRequests Request[] @relation("ConciergeRequests")
+  rating Float? @default(0)
+  reviews          Review[] @relation("UserReviews")
+  receivedReviews  Review[] @relation("ReceivedReviews")
+  image       String?
+  specialties Json?
+  bio         String?
+}
+
+model Profile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  bio          String?
+  specialties Json?
+  rating       Float    @default(0)
+  reviews      Review[]
+  isVerified   Boolean  @default(false)
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String
+  senderId    String
+  receiverId  String
+  createdAt   DateTime @default(now())
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+}
+
+model Listing {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  price       Float
+  category    String
+  images      Json
+  status      ListingStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Subscription {
+  id                  String   @id @default(cuid())
+  userId              String
+  planId              String
+  status              String
+  stripeSubscriptionId String  @unique
+  currentPeriodEnd    DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id])
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  rating      Float
+  comment     String
+  userId      String
+  conciergeId String
+  user        User     @relation("UserReviews", fields: [userId], references: [id])
+  concierge   User     @relation("ReceivedReviews", fields: [conciergeId], references: [id])
+  profile     Profile? @relation(fields: [profileId], references: [id])
+  profileId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Request {
+  id          String   @id @default(cuid())
+  service     String
+  details     String
+  status      String
+  userId      String
+  conciergeId String
+  user        User     @relation("UserRequests", fields: [userId], references: [id])
+  concierge   User     @relation("ConciergeRequests", fields: [conciergeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum UserRole {
+  CLIENT
+  CONCIERGE
+  ADMIN
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  ARCHIVED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}

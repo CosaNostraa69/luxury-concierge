@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #1a365d;
+  --secondary: #2d3748;
+  --accent: #ed8936;
+}
+
+body {
+  @apply bg-gray-50;
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500;
+  }
+}
