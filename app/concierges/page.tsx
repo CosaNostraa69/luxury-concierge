@@ -4,10 +4,15 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
+interface Specialty {
+  id: string;
+  name: string;
+}
+
 interface Concierge {
   id: string;
   name: string;
-  specialties: string[];
+  specialties: Specialty[] | null; // Mise à jour du type
   rating: number;
   bio: string;
   image?: string;
@@ -74,24 +79,29 @@ export default function Concierges() {
                       {concierge.name}
                     </h3>
                     <div className="flex items-center text-sm text-gray-500">
-                      <span>★ {concierge.rating}</span>
+                      <span>★ {concierge.rating || 0}</span>
                       <span className="mx-1">•</span>
-                      <span>{concierge.reviewCount} reviews</span>
+                      <span>{concierge.reviewCount || 0} reviews</span>
                     </div>
                   </div>
                 </div>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                  {concierge.bio}
+                  {concierge.bio || 'No bio available'}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {concierge.specialties.map((specialty) => (
+                  {concierge.specialties && Array.isArray(concierge.specialties) && concierge.specialties.map((specialty) => (
                     <span
-                      key={specialty}
+                      key={specialty.id} // Utilisation de l'ID unique
                       className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
                     >
-                      {specialty}
+                      {specialty.name} {/* Utilisation du nom de la spécialité */}
                     </span>
                   ))}
+                  {(!concierge.specialties || !Array.isArray(concierge.specialties) || concierge.specialties.length === 0) && (
+                    <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full">
+                      No specialties listed
+                    </span>
+                  )}
                 </div>
               </div>
             </Link>
@@ -100,4 +110,4 @@ export default function Concierges() {
       )}
     </div>
   );
-} 
+}

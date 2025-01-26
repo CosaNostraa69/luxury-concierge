@@ -10,9 +10,10 @@ export async function GET(req: Request) {
       ? {
           role: 'CONCIERGE' as const,
           specialties: {
-            path: '$[*]',
-            array_contains: specialty
-          },
+            some: {
+              id: specialty
+            }
+          }
         }
       : { role: 'CONCIERGE' as const };
 
