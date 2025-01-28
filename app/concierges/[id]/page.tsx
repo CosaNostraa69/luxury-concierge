@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
+import ReviewForm from '../../../components/ReviewForm';
 
 interface Review {
   id: string;
@@ -15,10 +16,15 @@ interface Review {
   };
 }
 
+interface Specialty {
+  id: string;
+  name: string;
+}
+
 interface Concierge {
   id: string;
   name: string;
-  specialties: string[] | null;
+  specialties: Specialty[] | null;
   rating: number;
   bio: string;
   image?: string;
@@ -33,6 +39,7 @@ export default function ConciergeProfile() {
   const [messageModal, setMessageModal] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     const fetchConciergeData = async () => {
@@ -82,12 +89,17 @@ export default function ConciergeProfile() {
 
       setMessage('');
       setMessageModal(false);
-      // Optionally show success message
+      setSuccessMessage('Message sent successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error sending message:', error);
       setError('Failed to send message. Please try again.');
     }
   };
+
+  const canReview = session && 
+    session.user?.id !== concierge?.id && 
+    session.user?.role !== 'CONCIERGE';
 
   if (loading) {
     return (
@@ -115,6 +127,12 @@ export default function ConciergeProfile() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {successMessage && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg">
+          {successMessage}
+        </div>
+      )}
+      
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="p-6">
           <div className="flex items-center">
@@ -132,12 +150,12 @@ export default function ConciergeProfile() {
                 <span className="ml-1 text-gray-600">{concierge.rating || 0}</span>
               </div>
               <div className="flex flex-wrap gap-2 mt-2">
-                {concierge.specialties && concierge.specialties.map((specialty) => (
+                {concierge.specialties?.map((specialty) => (
                   <span
-                    key={specialty}
-                    className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                    key={specialty.id}
+                    className="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2"
                   >
-                    {specialty}
+                    {specialty.name}
                   </span>
                 ))}
               </div>
@@ -159,7 +177,18 @@ export default function ConciergeProfile() {
 
           <div className="mt-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Reviews</h2>
-            <div className="space-y-4">
+            
+            {canReview && (
+              <ReviewForm 
+                conciergeId={concierge.id} 
+                onReviewSubmitted={() => {
+                  // Refresh the page or update reviews list
+                  window.location.reload();
+                }} 
+              />
+            )}
+
+            <div className="space-y-4 mt-6">
               {concierge.reviews && concierge.reviews.length > 0 ? (
                 concierge.reviews.map((review) => (
                   <div key={review.id} className="border-b border-gray-200 pb-4">
@@ -169,7 +198,20 @@ export default function ConciergeProfile() {
                           {review.user.name}
                         </span>
                         <span className="mx-2">•</span>
-                        <span className="text-yellow-400">{'★'.repeat(review.rating)}</span>
+                        <div className="flex">
+                          {[...Array(5)].map((_, index) => (
+                            <span
+                              key={index}
+                              className={`text-lg ${
+                                index < review.rating
+                                  ? 'text-yellow-400'
+                                  : 'text-gray-300'
+                              }`}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
                       </div>
                       <span className="text-sm text-gray-500">
                         {new Date(review.createdAt).toLocaleDateString()}

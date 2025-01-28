@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { getServerSession } from 'next-auth';
 import { prisma } from '../../../lib/prisma';
+import { authOptions } from '../auth/[...nextauth]/route';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { message: 'Unauthorized' },
+        { error: 'Not authenticated' }, 
         { status: 401 }
       );
     }
@@ -19,14 +19,22 @@ export async function GET() {
         userId: session.user.id,
         status: 'ACTIVE',
       },
+      select: {
+        id: true,
+        status: true,
+        currentPeriodEnd: true
+      }
     });
 
-    return NextResponse.json(subscription || { planId: null });
-  } catch (error) {
-    console.error('Error fetching subscription:', error);
+    return NextResponse.json({
+      planId: subscription ? 'premium' : 'free',
+      subscription: subscription || null
+    });
+
+  } catch {
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { error: 'Failed to fetch subscription' }, 
       { status: 500 }
     );
   }
-} 
+}

@@ -1,33 +1,52 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+// Fonction utilitaire pour extraire l'ID de l'URL
+function extractId(request: Request): string {
+  const segments = request.url.split('/');
+  return segments[segments.length - 1];
+}
+
+export async function GET(request: Request) {
   try {
+    const id = extractId(request);
+
     const concierge = await prisma.user.findUnique({
       where: {
-        id: params.id,
+        id,
         role: 'CONCIERGE',
       },
       select: {
         id: true,
         name: true,
-        image: true,
-        specialties: true,
         bio: true,
+        image: true,
         rating: true,
-        receivedReviews: {
-          include: {
-            user: {
+        specialties: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        profile: {
+          select: {
+            rating: true,
+            reviews: {
               select: {
-                name: true,
+                id: true,
+                rating: true,
+                comment: true,
+                createdAt: true,
+                user: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+              orderBy: {
+                createdAt: 'desc',
               },
             },
-          },
-          orderBy: {
-            createdAt: 'desc',
           },
         },
       },
@@ -35,17 +54,61 @@ export async function GET(
 
     if (!concierge) {
       return NextResponse.json(
-        { message: 'Concierge not found' },
+        { error: 'Concierge not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(concierge);
+    const formattedConcierge = {
+      id: concierge.id,
+      name: concierge.name,
+      bio: concierge.bio,
+      image: concierge.image,
+      rating: concierge.profile?.rating || 0,
+      specialties: concierge.specialties,
+      reviews: concierge.profile?.reviews.map(review => ({
+        id: review.id,
+        rating: review.rating,
+        comment: review.comment,
+        createdAt: review.createdAt.toISOString(),
+        user: {
+          name: review.user.name
+        }
+      })) || []
+    };
+
+    return NextResponse.json(formattedConcierge);
+
   } catch (error) {
-    console.error('Error fetching concierge:', error);
+    console.error('Error in GET /api/concierges/[id]:', error);
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { error: 'Failed to fetch concierge data' },
       { status: 500 }
     );
   }
-} 
+}
+
+export async function PUT(request: Request) {
+  try {
+    const id = extractId(request);
+    const body = await request.json();
+    
+    const updatedConcierge = await prisma.user.update({
+      where: {
+        id,
+      },
+      data: {
+        bio: body.bio,
+        specialties: body.specialties,
+      },
+    });
+
+    return NextResponse.json(updatedConcierge);
+  } catch (error) {
+    console.error('Error updating concierge:', error);
+    return NextResponse.json(
+      { error: 'Error updating concierge data' },
+      { status: 500 }
+    );
+  }
+}

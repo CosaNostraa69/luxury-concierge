@@ -13,38 +13,44 @@
     url      = env("DATABASE_URL")
   }
 
-  model User {
-    id            String    @id @default(cuid())
-    email         String    @unique
-    name          String?
-    password      String
-    role          UserRole  @default(CLIENT)
-    createdAt     DateTime  @default(now())
-    updatedAt     DateTime  @updatedAt
-    profile       Profile?
-    sentMessages    Message[] @relation("SentMessages")
-    receivedMessages Message[] @relation("ReceivedMessages")
-    listings      Listing[]
-    subscriptions Subscription[]
-    sentRequests     Request[] @relation("UserRequests")
-    receivedRequests Request[] @relation("ConciergeRequests")
-    rating Float? @default(0)
-    reviews          Review[] @relation("UserReviews")
-    receivedReviews  Review[] @relation("ReceivedReviews")
-    image       String?
-    specialties Specialty[]
-    bio         String?
-  }
+model User {
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  image           String?
+  role            UserRole  @default(USER)
+  bio             String?
+  rating          Float     @default(0)
+  reviews         Review[]  @relation("UserReviews")
+  receivedReviews Review[]  @relation("ReceivedReviews")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  profile         Profile?
+  sentMessages    Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  listings        Listing[]
+  subscription    Subscription? // Relation un-à-un
+  sentRequests     Request[] @relation("UserRequests")
+  receivedRequests Request[] @relation("ConciergeRequests")
+  specialties     Specialty[]
+  premiumFeatures   PremiumFeatures?
+  products        Product[]
+  services        Service[]
+}
 
   model Profile {
-    id           String   @id @default(cuid())
-    userId       String   @unique
-    user         User     @relation(fields: [userId], references: [id])
-    bio          String?
-    specialties Json?
-    rating       Float    @default(0)
-    reviews      Review[]
-    isVerified   Boolean  @default(false)
+    id                 String   @id @default(cuid())
+    userId             String   @unique
+    user               User     @relation(fields: [userId], references: [id])
+    bio                String?
+    specialties        Json?
+    rating             Float    @default(0)
+    reviews            Review[]
+    isVerified         Boolean  @default(false)
+    isPremium          Boolean  @default(false)
+    featuredListing    Boolean  @default(false)
+    enhancedVisibility Boolean  @default(false)
+    premiumBadge       Boolean  @default(false)
   }
 
   model Message {
@@ -71,30 +77,34 @@
     user        User     @relation(fields: [userId], references: [id])
   }
 
-  model Subscription {
-    id                  String   @id @default(cuid())
-    userId              String
-    planId              String
-    status              String
-    stripeSubscriptionId String  @unique
-    currentPeriodEnd    DateTime
-    createdAt           DateTime @default(now())
-    updatedAt           DateTime @updatedAt
-    user                User     @relation(fields: [userId], references: [id])
-  }
-
+model Subscription {
+  id                  String            @id @default(cuid())
+  userId              String            @unique // Changé pour relation un-à-un
+  user                User              @relation(fields: [userId], references: [id])
+  tier                SubscriptionTier  @default(FREE)
+  status              SubscriptionStatus
+  stripeCustomerId    String?          @unique
+  stripePriceId       String?
+  stripeSubscriptionId String?         @unique
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  cancelAtPeriodEnd   Boolean          @default(false)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
   model Review {
     id          String   @id @default(cuid())
-    rating      Float
+    rating      Int
     comment     String
-    userId      String
-    conciergeId String
+    createdAt   DateTime @default(now())
+    userId      String   
+    conciergeId String   
     user        User     @relation("UserReviews", fields: [userId], references: [id])
     concierge   User     @relation("ReceivedReviews", fields: [conciergeId], references: [id])
-    profile     Profile? @relation(fields: [profileId], references: [id])
-    profileId   String?
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+    profile     Profile? @relation(fields: [conciergeId], references: [userId], map: "Review_profile_fkey")
+
+    @@index([userId])
+    @@index([conciergeId])
   }
 
   model Request {
@@ -116,10 +126,58 @@
     users       User[]   // Many-to-many relation with User
   }
 
+  model PremiumFeatures {
+    id                    String   @id @default(cuid())
+    userId                String   @unique
+    user                  User     @relation(fields: [userId], references: [id])
+    prioritySupport       Boolean  @default(false)
+    extendedAvailability Boolean  @default(false)
+    customBranding       Boolean  @default(false)
+    analyticsAccess      Boolean  @default(false)
+    maxClientsCount      Int      @default(50)
+    commissionRate       Float    @default(15)
+    verifiedStatus       Boolean  @default(false)
+    canSellProducts      Boolean  @default(true)
+    canOfferServices     Boolean  @default(true)
+    maxProductListings   Int      @default(50)
+    maxServiceListings   Int      @default(20)
+    createdAt            DateTime @default(now())
+    updatedAt            DateTime @updatedAt
+  }
+
+  model Product {
+    id          String      @id @default(cuid())
+    name        String
+    description String
+    price       Float
+    images      String?
+    category    String
+    inStock     Boolean     @default(true)
+    conciergeId String
+    concierge   User        @relation(fields: [conciergeId], references: [id])
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+  }
+
+  model Service {
+    id          String      @id @default(cuid())
+    name        String
+    description String
+    price       Float
+    duration    Int         // in minutes
+    category    String
+    available   Boolean     @default(true)
+    conciergeId String
+    concierge   User        @relation(fields: [conciergeId], references: [id])
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+  }
+
   enum UserRole {
     CLIENT
     CONCIERGE
     ADMIN
+    USER
   }
 
   enum ListingStatus {
@@ -128,8 +186,17 @@
     ARCHIVED
   }
 
-  enum SubscriptionStatus {
-    ACTIVE
-    CANCELLED
-    EXPIRED
-  }
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  PAST_DUE
+  TRIALING
+  UNPAID
+}
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+}
